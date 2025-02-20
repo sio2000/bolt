@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useParkingStore } from '../store/parkingStore';
 import { icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useLanguageStore } from '../store/languageStore';
+import { translations } from '../utils/translations';
 
 const DEFAULT_CENTER = { lat: 51.505, lng: -0.09 };
 const DEFAULT_ZOOM = 13;
@@ -67,6 +69,23 @@ export function Map() {
   const userLocation = useParkingStore((state) => state.userLocation);
   const selectedDistance = useParkingStore((state) => state.selectedDistance);
   const setSelectedSpot = useParkingStore((state) => state.setSelectedSpot);
+  const { language } = useLanguageStore();
+  const t = translations[language];
+  const setUserLocation = useParkingStore((state) => state.setUserLocation);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+      }
+    );
+  }, [setUserLocation]);
 
   const handleSpotClick = (spot: typeof spots[0]) => {
     if (userLocation) {
@@ -91,44 +110,63 @@ export function Map() {
   }, [spots, userLocation, selectedDistance]);
 
   return (
-    <MapContainer
-      center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
-      zoom={DEFAULT_ZOOM}
-      className="h-full w-full"
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <LocationMarker />
-      {filteredSpots.map((spot) => (
-        <Marker
-          key={spot.id}
-          position={[spot.latitude, spot.longitude]}
-          icon={redMarkerIcon}
-          eventHandlers={{
-            click: () => handleSpotClick(spot),
-          }}
-        >
-          <Popup>
-            <div className="p-2">
-              <h3 className="font-semibold">Parking Spot</h3>
-              <p>Size: {spot.size}</p>
-              <p>Accessible: {spot.isAccessible ? 'Yes' : 'No'}</p>
-              {userLocation && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Distance: {calculateDistance(
-                    userLocation.latitude,
-                    userLocation.longitude,
-                    spot.latitude,
-                    spot.longitude
-                  ).toFixed(1)} km
-                </p>
-              )}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
+    <div className="relative w-full h-full">
+      {/* Watermark */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 
+        bg-black/60 backdrop-blur-sm rounded-lg shadow-lg
+        transition-all duration-300 hover:bg-black/70 group"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-white/90 text-base font-medium whitespace-nowrap
+            transition-all duration-300 group-hover:text-white"
+          >
+            {t.mapWatermark}
+          </span>
+        </div>
+      </div>
+
+      {/* Existing map */}
+      <MapContainer
+        center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
+        zoom={DEFAULT_ZOOM}
+        className="w-full h-full"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <LocationMarker />
+        {filteredSpots.map((spot) => (
+          <Marker
+            key={spot.id}
+            position={[spot.latitude, spot.longitude]}
+            icon={redMarkerIcon}
+            eventHandlers={{
+              click: () => handleSpotClick(spot),
+            }}
+          >
+            <Popup>
+              <div className="p-2">
+                <h3 className="font-semibold">
+                  {spot.userName ? `${spot.userName}'s Spot` : `Spot ${spot.id.slice(-6)}`}
+                </h3>
+                <p>Size: {spot.size}</p>
+                <p>Accessible: {spot.isAccessible ? 'Yes' : 'No'}</p>
+                {userLocation && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Distance: {calculateDistance(
+                      userLocation.latitude,
+                      userLocation.longitude,
+                      spot.latitude,
+                      spot.longitude
+                    ).toFixed(1)} km
+                  </p>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
   );
 }

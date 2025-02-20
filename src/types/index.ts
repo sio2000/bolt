@@ -9,6 +9,7 @@ export interface ParkingSpot {
   createdAt: number;
   expiresAt: number;
   userId: string;
+  userName?: string;
 }
 
 export interface UserLocation {
